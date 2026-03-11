@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  sector      String?
+  planTier    String    @default("px360_foundation")
+  logo        String?
+  settings    Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  users       User[]
+  projects    Project[]
+  tasks       Task[]
+}
+
+model User {
+  id            String    @id @default(uuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id])
+  email         String    @unique
+  name          String
+  role          Role      @default(DEVELOPER)
+  skills        String[]  @default([])
+  maxCapacity   Int       @default(5)
+  velocity      Float     @default(0.8)
+  avatarUrl     String?
+  phone         String?
+  slackId       String?
+  reportsTo     String?
+  isActive      Boolean   @default(true)
+  passwordHash  String?
+  createdAt     DateTime  @default(now())
+  tasksAssigned Task[]    @relation("assignee")
+  tasksCreated  Task[]    @relation("creator")
+  tasksLead     Task[]    @relation("lead")
+  events        TaskEvent[]
+  notifications Notification[] @relation("recipient")
+  capacityLogs  TeamCapacity[]
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  TEAM_LEAD
+  DEVELOPER
+  CLIENT
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id])
+  clientId    String
+  name        String
+  description String?
+  status      String    @default("active")
+  slaConfig   Json      @default("{\"urgent_hours\":24,\"high_hours\":48,\"normal_hours\":96,\"low_hours\":168}")
+  createdAt   DateTime  @default(now())
+  tasks       Task[]
+}
+
+model Task {
+  id            String     @id @default(uuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id])
+  projectId     String?
+  project       Project?   @relation(fields: [projectId], references: [id])
+  ticketNumber  String     @unique
+  title         String
+  description   String?
+  category      String?
+  priority      Priority   @default(NORMAL)
+  status        TaskStatus @default(SUBMITTED)
+  assigneeId    String?
+  assignee      User?      @relation("assignee", fields: [assigneeId], references: [id])
+  createdById   String
+  createdBy     User       @relation("creator", fields: [createdById], references: [id])
+  leadId        String?
+  lead          User?      @relation("lead", fields: [leadId], references: [id])
+  source        String     @default("portal")
+  sourceRef     String?
+  aiParsed      Boolean    @default(false)
+  aiConfidence  Float?
+  slaDeadline   DateTime?
+  slaBreached   Boolean    @default(false)
+  estimatedHours Float?
+  actualHours   Float?
+  tags          String[]   @default([])
+  metadata      Json       @default("{}")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  acknowledgedAt DateTime?
+  assignedAt    DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  deliveredAt   DateTime?
+  events        TaskEvent[]
+  notifications Notification[]
+  attachments   Attachment[]
+}
+
+enum Priority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum TaskStatus {
+  SUBMITTED
+  ACKNOWLEDGED
+  ASSIGNED
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CLIENT_REVIEW
+  DELIVERED
+  REOPENED
+  CANCELLED
+}
+
+model TaskEvent {
+  id         String   @id @default(uuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id])
+  eventType  String
+  fromStatus String?
+  toStatus   String?
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  actorType  String?
+  note       String?
+  payload    Json     @default("{}")
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id])
+  recipientId String
+  recipient   User      @relation("recipient", fields: [recipientId], references: [id])
+  channel     String
+  type        String
+  subject     String?
+  content     Json
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model TeamCapacity {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  date            DateTime @db.Date
+  activeTasks     Int      @default(0)
+  maxCapacity     Int
+  utilizationPct  Float
+  freeHours       Float?
+  skillsInDemand  String[] @default([])
+  createdAt       DateTime @default(now())
+  @@unique([userId, date])
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  fileName  String
+  fileUrl   String
+  fileSize  Int
+  mimeType  String
+  uploadedBy String
+  createdAt DateTime @default(now())
+}

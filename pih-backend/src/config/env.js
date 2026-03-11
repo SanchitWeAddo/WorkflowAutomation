@@ -1,0 +1,26 @@
+require('dotenv').config();
+
+module.exports = {
+  PORT: process.env.PORT || 4000,
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  DATABASE_URL: process.env.DATABASE_URL,
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
+  JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-change-me',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  AI_MODEL: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
+  AI_CONFIDENCE_THRESHOLD: parseFloat(process.env.AI_CONFIDENCE_THRESHOLD || '0.75'),
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
+  FROM_EMAIL: process.env.FROM_EMAIL || 'notifications@weaddo.app',
+  WHATSAPP_API_KEY: process.env.WHATSAPP_API_KEY,
+  WHATSAPP_PHONE: process.env.WHATSAPP_PHONE,
+  WHATSAPP_WEBHOOK_SECRET: process.env.WHATSAPP_WEBHOOK_SECRET,
+  N8N_URL: process.env.N8N_URL,
+  N8N_API_KEY: process.env.N8N_API_KEY,
+  N8N_WEBHOOK_SECRET: process.env.N8N_WEBHOOK_SECRET,
+  S3_BUCKET: process.env.S3_BUCKET,
+  S3_REGION: process.env.S3_REGION,
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(','),
+};
