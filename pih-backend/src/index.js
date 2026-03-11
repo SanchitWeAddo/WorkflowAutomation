@@ -1,3 +1,4 @@
+const path = require('path');
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
@@ -50,11 +51,20 @@ app.use('/api/v1/dashboard', require('./routes/dashboard.routes'));
 app.use('/api/v1/notifications', require('./routes/notification.routes'));
 
 // ---------------------------------------------------------------------------
-// 404 handler
+// Serve frontend in production
 // ---------------------------------------------------------------------------
-app.use((_req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+if (NODE_ENV === 'production') {
+  const frontendDist = path.join(__dirname, '../../pih-frontend/dist');
+  app.use(express.static(frontendDist));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+} else {
+  // 404 handler (dev only - frontend served by Vite in dev)
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Global error handler (must be registered after all routes)

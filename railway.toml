@@ -1,0 +1,10 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd pih-frontend && npm install && npm run build && cd ../pih-backend && npm install && npx prisma generate"
+
+[deploy]
+startCommand = "cd pih-backend && npx prisma migrate deploy && node src/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

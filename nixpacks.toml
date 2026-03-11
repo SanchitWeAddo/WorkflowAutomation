@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ["nodejs_22", "npm"]
+
+[phases.install]
+cmds = [
+  "cd pih-frontend && npm ci",
+  "cd pih-backend && npm ci"
+]
+
+[phases.build]
+cmds = [
+  "cd pih-frontend && npm run build",
+  "cd pih-backend && npx prisma generate"
+]
+
+[start]
+cmd = "cd pih-backend && npx prisma migrate deploy && node src/index.js"
