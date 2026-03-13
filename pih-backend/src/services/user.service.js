@@ -67,7 +67,7 @@ async function getUsers(orgId, filters = {}) {
  * @param {string} id
  * @returns {object}
  */
-async function getUser(id) {
+async function getUser(id, orgId) {
   const user = await prisma.user.findUnique({
     where: { id },
     select: {
@@ -95,7 +95,7 @@ async function getUser(id) {
     },
   });
 
-  if (!user) {
+  if (!user || (orgId && user.orgId !== orgId)) {
     const err = new Error('User not found');
     err.statusCode = 404;
     throw err;
@@ -111,9 +111,9 @@ async function getUser(id) {
  * @param {{ name?: string, phone?: string, skills?: string[], avatarUrl?: string, maxCapacity?: number, velocity?: number, role?: string, isActive?: boolean }} data
  * @returns {object} Updated user
  */
-async function updateUser(id, data) {
+async function updateUser(id, data, orgId) {
   const existing = await prisma.user.findUnique({ where: { id } });
-  if (!existing) {
+  if (!existing || (orgId && existing.orgId !== orgId)) {
     const err = new Error('User not found');
     err.statusCode = 404;
     throw err;
@@ -155,9 +155,9 @@ async function updateUser(id, data) {
  * @param {string} id
  * @returns {{ totalAssigned, totalCreated, completed, inProgress, completionRate, avgCompletionHours }}
  */
-async function getUserStats(id) {
+async function getUserStats(id, orgId) {
   const user = await prisma.user.findUnique({ where: { id } });
-  if (!user) {
+  if (!user || (orgId && user.orgId !== orgId)) {
     const err = new Error('User not found');
     err.statusCode = 404;
     throw err;

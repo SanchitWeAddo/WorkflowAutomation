@@ -5,9 +5,7 @@ import { ArrowLeft, Clock, User, MessageSquare, Play, Send, CheckCircle } from '
 import { formatDistanceToNow, format } from 'date-fns';
 import clsx from 'clsx';
 
-const getToken = () => {
-  try { return JSON.parse(localStorage.getItem('pih-auth'))?.state?.token; } catch { return null; }
-};
+const getToken = () => useAuthStore.getState().token;
 const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` });
 
 const PRIORITY_COLORS = { URGENT: 'bg-red-100 text-red-700', HIGH: 'bg-orange-100 text-orange-700', NORMAL: 'bg-blue-100 text-blue-700', LOW: 'bg-gray-100 text-gray-700' };

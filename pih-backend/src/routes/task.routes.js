@@ -27,7 +27,7 @@ router.get('/', authenticate, async (req, res, next) => {
 
     const result = await taskService.getTasks({
       ...query,
-      orgId: req.user.role === 'CLIENT' ? undefined : req.user.orgId,
+      orgId: req.user.orgId,
       createdById: req.user.role === 'CLIENT' ? req.user.id : query.createdById,
     });
     res.json(result);
@@ -39,7 +39,7 @@ router.get('/', authenticate, async (req, res, next) => {
 // Get single task
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const task = await taskService.getTask(req.params.id);
+    const task = await taskService.getTask(req.params.id, req.user.orgId);
     res.json(task);
   } catch (err) {
     next(err);
@@ -87,7 +87,8 @@ router.patch('/:id/status', authenticate, validate(updateStatusSchema), async (r
       req.body.status,
       req.user.id,
       req.user.role,
-      req.body.note
+      req.body.note,
+      req.user.orgId
     );
 
     try {
@@ -112,7 +113,8 @@ router.patch(
         req.params.id,
         req.body.assigneeId,
         req.user.id,
-        req.body.note
+        req.body.note,
+        req.user.orgId
       );
 
       try {
@@ -138,7 +140,8 @@ router.patch(
         req.params.id,
         req.body.newLeadId,
         req.user.id,
-        req.body.note
+        req.body.note,
+        req.user.orgId
       );
       res.json(task);
     } catch (err) {
@@ -154,7 +157,8 @@ router.patch('/:id/accept', authenticate, async (req, res, next) => {
       req.params.id,
       req.body.accepted,
       req.user.id,
-      req.body.feedback
+      req.body.feedback,
+      req.user.orgId
     );
     res.json(task);
   } catch (err) {
@@ -169,7 +173,8 @@ router.post('/:id/comments', authenticate, validate(commentSchema), async (req, 
       req.params.id,
       req.user.id,
       req.body.content,
-      req.body.isInternal
+      req.body.isInternal,
+      req.user.orgId
     );
 
     try {
@@ -185,7 +190,7 @@ router.post('/:id/comments', authenticate, validate(commentSchema), async (req, 
 // Upload attachment
 router.post('/:id/attachments', authenticate, upload.single('file'), async (req, res, next) => {
   try {
-    const attachment = await taskService.addAttachment(req.params.id, req.file, req.user.id);
+    const attachment = await taskService.addAttachment(req.params.id, req.file, req.user.id, req.user.orgId);
     res.status(201).json(attachment);
   } catch (err) {
     next(err);
@@ -199,7 +204,7 @@ router.get(
   authorize('SUPER_ADMIN', 'ADMIN', 'TEAM_LEAD'),
   async (req, res, next) => {
     try {
-      const task = await taskService.getTask(req.params.id);
+      const task = await taskService.getTask(req.params.id, req.user.orgId);
       const suggestion = await aiService.suggestAssignee(task, req.user.orgId);
       res.json(suggestion);
     } catch (err) {

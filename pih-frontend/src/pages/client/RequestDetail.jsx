@@ -8,9 +8,8 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
 
-const getToken = () => {
-  try { return JSON.parse(localStorage.getItem('pih-auth'))?.state?.token; } catch { return null; }
-};
+import { useAuthStore } from '../../store/authStore';
+const getToken = () => useAuthStore.getState().token;
 const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` });
 
 const PRIORITY_COLORS = {

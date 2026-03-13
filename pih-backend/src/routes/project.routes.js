@@ -15,7 +15,7 @@ router.get('/', authenticate, async (req, res, next) => {
 
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const project = await projectService.getProject(req.params.id);
+    const project = await projectService.getProject(req.params.id, req.user.orgId);
     res.json(project);
   } catch (err) {
     next(err);
@@ -24,7 +24,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
 
 router.get('/:id/stats', authenticate, async (req, res, next) => {
   try {
-    const stats = await projectService.getProjectStats(req.params.id);
+    const stats = await projectService.getProjectStats(req.params.id, req.user.orgId);
     res.json(stats);
   } catch (err) {
     next(err);
@@ -54,7 +54,7 @@ router.put(
   authorize('SUPER_ADMIN', 'ADMIN'),
   async (req, res, next) => {
     try {
-      const project = await projectService.updateProject(req.params.id, req.body);
+      const project = await projectService.updateProject(req.params.id, req.body, req.user.orgId);
       res.json(project);
     } catch (err) {
       next(err);

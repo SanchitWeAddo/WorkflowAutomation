@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, Plus, Users, FolderKanban } from 'lucide-react';
 
-const getToken = () => {
-  try { return JSON.parse(localStorage.getItem('pih-auth'))?.state?.token; } catch { return null; }
-};
+import { useAuthStore } from '../../store/authStore';
+const getToken = () => useAuthStore.getState().token;
 const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` });
 
 export default function AdminOrganizations() {
