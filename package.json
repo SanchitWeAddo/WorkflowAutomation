@@ -1,0 +1,11 @@
+{
+  "name": "project-intelligence-hub",
+  "private": true,
+  "scripts": {
+    "build": "cd pih-frontend && npm install && npm run build && cd ../pih-backend && npm install && npx prisma generate",
+    "start": "cd pih-backend && npx prisma migrate deploy && node src/index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
