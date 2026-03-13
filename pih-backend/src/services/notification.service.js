@@ -187,6 +187,57 @@ async function markAsRead(notificationId, userId) {
   });
 }
 
+/**
+ * Get paginated notifications for a user.
+ *
+ * @param {string} userId
+ * @param {{ page?: number, limit?: number }} filters
+ * @returns {{ notifications: object[], pagination: object }}
+ */
+async function getNotifications(userId, filters = {}) {
+  const { page = 1, limit = 20 } = filters;
+  const skip = (page - 1) * limit;
+
+  const where = { recipientId: userId };
+
+  const [notifications, total] = await Promise.all([
+    prisma.notification.findMany({
+      where,
+      skip,
+      take: Number(limit),
+      orderBy: { createdAt: 'desc' },
+      include: {
+        task: { select: { id: true, ticketNumber: true, title: true } },
+      },
+    }),
+    prisma.notification.count({ where }),
+  ]);
+
+  return {
+    notifications,
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+/**
+ * Mark all notifications as read for a user.
+ *
+ * @param {string} userId
+ * @returns {{ count: number }} Number of notifications updated.
+ */
+async function markAllAsRead(userId) {
+  const result = await prisma.notification.updateMany({
+    where: { recipientId: userId, readAt: null },
+    data: { readAt: new Date() },
+  });
+  return { count: result.count };
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -259,6 +310,8 @@ module.exports = {
   createNotification,
   sendEmail,
   notifyTaskUpdate,
+  getNotifications,
   getUnreadCount,
   markAsRead,
+  markAllAsRead,
 };

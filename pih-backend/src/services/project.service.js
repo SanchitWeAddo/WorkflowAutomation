@@ -29,7 +29,7 @@ async function createProject(data) {
  * @param {string} id
  * @returns {object}
  */
-async function getProject(id) {
+async function getProject(id, orgId) {
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
@@ -39,7 +39,7 @@ async function getProject(id) {
     },
   });
 
-  if (!project) {
+  if (!project || (orgId && project.orgId !== orgId)) {
     const err = new Error('Project not found');
     err.statusCode = 404;
     throw err;
@@ -114,9 +114,9 @@ async function getProjects(orgId, filters = {}) {
  * @param {{ name?: string, description?: string, status?: string, slaConfig?: object }} data
  * @returns {object} Updated project
  */
-async function updateProject(id, data) {
+async function updateProject(id, data, orgId) {
   const existing = await prisma.project.findUnique({ where: { id } });
-  if (!existing) {
+  if (!existing || (orgId && existing.orgId !== orgId)) {
     const err = new Error('Project not found');
     err.statusCode = 404;
     throw err;
@@ -143,9 +143,9 @@ async function updateProject(id, data) {
  * @param {string} id
  * @returns {{ projectId, totalTasks, byStatus, byPriority, slaBreachCount, completionRate }}
  */
-async function getProjectStats(id) {
+async function getProjectStats(id, orgId) {
   const project = await prisma.project.findUnique({ where: { id } });
-  if (!project) {
+  if (!project || (orgId && project.orgId !== orgId)) {
     const err = new Error('Project not found');
     err.statusCode = 404;
     throw err;

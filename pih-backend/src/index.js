@@ -9,6 +9,7 @@ const { PORT, NODE_ENV, CORS_ORIGINS } = require('./config/env');
 const logger = require('./utils/logger');
 const { initSocket } = require('./socket');
 const { errorHandler } = require('./middleware/errorHandler');
+const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
 
 // ---------------------------------------------------------------------------
 // App
@@ -39,6 +40,13 @@ app.use(
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ---------------------------------------------------------------------------
+// Rate limiting
+// ---------------------------------------------------------------------------
+app.use('/api/', apiLimiter);
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
 
 // ---------------------------------------------------------------------------
 // API routes (v1)

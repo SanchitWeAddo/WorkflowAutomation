@@ -180,9 +180,47 @@ async function getProfile(userId) {
   return user;
 }
 
+/**
+ * Exchange a valid refresh token for a new access token + refresh token pair.
+ *
+ * @param {string} refreshTokenStr
+ * @returns {{ token: string, refreshToken: string }}
+ */
+async function refreshAccessToken(refreshTokenStr) {
+  let decoded;
+  try {
+    decoded = jwt.verify(refreshTokenStr, JWT_SECRET);
+  } catch (err) {
+    const error = new Error('Invalid or expired refresh token');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  if (decoded.type !== 'refresh') {
+    const err = new Error('Invalid token type');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+  if (!user || !user.isActive) {
+    const err = new Error('User not found or inactive');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  const token = generateToken(user.id, user.orgId);
+  const newRefreshToken = generateRefreshToken(user.id, user.orgId);
+
+  logger.info('Token refreshed', { userId: user.id });
+
+  return { token, refreshToken: newRefreshToken };
+}
+
 module.exports = {
   register,
   login,
   generateToken,
+  refreshAccessToken,
   getProfile,
 };

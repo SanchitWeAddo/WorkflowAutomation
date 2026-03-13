@@ -55,7 +55,7 @@ async function createTask({ title, description, priority = 'NORMAL', category, p
   return task;
 }
 
-async function getTask(id) {
+async function getTask(id, orgId) {
   const task = await prisma.task.findUnique({
     where: { id },
     include: {
@@ -70,6 +70,12 @@ async function getTask(id) {
   });
 
   if (!task) {
+    const err = new Error('Task not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (orgId && task.orgId !== orgId) {
     const err = new Error('Task not found');
     err.statusCode = 404;
     throw err;
@@ -122,9 +128,9 @@ async function getTasks({ status, priority, assigneeId, createdById, projectId, 
   };
 }
 
-async function updateStatus(taskId, newStatus, actorId, role, note) {
+async function updateStatus(taskId, newStatus, actorId, role, note, orgId) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) {
+  if (!task || (orgId && task.orgId !== orgId)) {
     const err = new Error('Task not found');
     err.statusCode = 404;
     throw err;
@@ -170,9 +176,9 @@ async function updateStatus(taskId, newStatus, actorId, role, note) {
   return updated;
 }
 
-async function assignTask(taskId, assigneeId, actorId, note) {
+async function assignTask(taskId, assigneeId, actorId, note, orgId) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) {
+  if (!task || (orgId && task.orgId !== orgId)) {
     const err = new Error('Task not found');
     err.statusCode = 404;
     throw err;
@@ -217,9 +223,9 @@ async function assignTask(taskId, assigneeId, actorId, note) {
   return updated;
 }
 
-async function handoffTask(taskId, newLeadId, actorId, note) {
+async function handoffTask(taskId, newLeadId, actorId, note, orgId) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) {
+  if (!task || (orgId && task.orgId !== orgId)) {
     const err = new Error('Task not found');
     err.statusCode = 404;
     throw err;
@@ -257,9 +263,9 @@ async function handoffTask(taskId, newLeadId, actorId, note) {
   return updated;
 }
 
-async function acceptTask(taskId, accepted, actorId, feedback) {
+async function acceptTask(taskId, accepted, actorId, feedback, orgId) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) {
+  if (!task || (orgId && task.orgId !== orgId)) {
     const err = new Error('Task not found');
     err.statusCode = 404;
     throw err;
@@ -299,9 +305,9 @@ async function acceptTask(taskId, accepted, actorId, feedback) {
   return updated;
 }
 
-async function addComment(taskId, actorId, content, isInternal = false) {
+async function addComment(taskId, actorId, content, isInternal = false, orgId) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) {
+  if (!task || (orgId && task.orgId !== orgId)) {
     const err = new Error('Task not found');
     err.statusCode = 404;
     throw err;
@@ -325,9 +331,9 @@ async function addComment(taskId, actorId, content, isInternal = false) {
   return event;
 }
 
-async function addAttachment(taskId, file, uploadedBy) {
+async function addAttachment(taskId, file, uploadedBy, orgId) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) {
+  if (!task || (orgId && task.orgId !== orgId)) {
     const err = new Error('Task not found');
     err.statusCode = 404;
     throw err;
