@@ -1,9 +1,12 @@
 const express = require('express');
+const path = require('path');
+const crypto = require('crypto');
 const router = express.Router();
 const multer = require('multer');
 const { validate } = require('../middleware/validate');
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/rbac');
+const { mutationLimiter } = require('../middleware/rateLimiter');
 const {
   createTaskSchema,
   updateStatusSchema,
@@ -13,9 +16,34 @@ const {
 } = require('../validators/task.validator');
 const taskService = require('../services/task.service');
 const aiService = require('../services/ai.service');
+const logger = require('../utils/logger');
 const { getIO } = require('../socket');
 
-const upload = multer({ dest: 'uploads/', limits: { fileSize: 10 * 1024 * 1024 } });
+const ALLOWED_FILE_TYPES = [
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp',
+  '.txt', '.csv', '.json', '.zip', '.rar',
+];
+
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${crypto.randomUUID()}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_FILE_TYPES.includes(ext)) {
+      return cb(new Error(`File type ${ext} is not allowed`));
+    }
+    cb(null, true);
+  },
+});
 
 // List tasks
 router.get('/', authenticate, async (req, res, next) => {
@@ -47,7 +75,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
 });
 
 // Create task
-router.post('/', authenticate, validate(createTaskSchema), async (req, res, next) => {
+router.post('/', authenticate, mutationLimiter, validate(createTaskSchema), async (req, res, next) => {
   try {
     const task = await taskService.createTask({
       ...req.body,
@@ -57,7 +85,9 @@ router.post('/', authenticate, validate(createTaskSchema), async (req, res, next
 
     try {
       getIO().to(`org:${req.user.orgId}`).emit('task:created', task);
-    } catch (_) {}
+    } catch (err) {
+      logger.warn('Socket emit failed for task:created', { taskId: task.id, error: err.message });
+    }
 
     res.status(201).json(task);
   } catch (err) {
@@ -80,7 +110,7 @@ router.post('/parse', authenticate, validate(parseTaskSchema), async (req, res, 
 });
 
 // Update task status
-router.patch('/:id/status', authenticate, validate(updateStatusSchema), async (req, res, next) => {
+router.patch('/:id/status', authenticate, mutationLimiter, validate(updateStatusSchema), async (req, res, next) => {
   try {
     const task = await taskService.updateStatus(
       req.params.id,
@@ -93,7 +123,9 @@ router.patch('/:id/status', authenticate, validate(updateStatusSchema), async (r
 
     try {
       getIO().to(`task:${task.id}`).to(`org:${req.user.orgId}`).emit('task:updated', task);
-    } catch (_) {}
+    } catch (err) {
+      logger.warn('Socket emit failed for task:updated', { taskId: task.id, error: err.message });
+    }
 
     res.json(task);
   } catch (err) {
@@ -120,7 +152,9 @@ router.patch(
       try {
         getIO().to(req.body.assigneeId).emit('task:assigned', task);
         getIO().to(`task:${task.id}`).emit('task:updated', task);
-      } catch (_) {}
+      } catch (err) {
+        logger.warn('Socket emit failed for task:assigned', { taskId: task.id, error: err.message });
+      }
 
       res.json(task);
     } catch (err) {
@@ -179,7 +213,9 @@ router.post('/:id/comments', authenticate, validate(commentSchema), async (req, 
 
     try {
       getIO().to(`task:${req.params.id}`).emit('task:comment', event);
-    } catch (_) {}
+    } catch (err) {
+      logger.warn('Socket emit failed for task:comment', { taskId: req.params.id, error: err.message });
+    }
 
     res.status(201).json(event);
   } catch (err) {

@@ -23,10 +23,20 @@ router.get('/workload', authenticate, async (req, res, next) => {
 
 router.get('/delivery', authenticate, async (req, res, next) => {
   try {
+    const { dateFrom, dateTo } = req.query;
+
+    // Validate date parameters if provided
+    if (dateFrom && isNaN(Date.parse(dateFrom))) {
+      return res.status(400).json({ error: 'Invalid dateFrom format. Use ISO 8601 (e.g. 2025-01-01)' });
+    }
+    if (dateTo && isNaN(Date.parse(dateTo))) {
+      return res.status(400).json({ error: 'Invalid dateTo format. Use ISO 8601 (e.g. 2025-12-31)' });
+    }
+
     const metrics = await dashboardService.getDeliveryMetrics(
       req.user.orgId,
-      req.query.dateFrom,
-      req.query.dateTo
+      dateFrom,
+      dateTo
     );
     res.json(metrics);
   } catch (err) {

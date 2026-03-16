@@ -1,8 +1,14 @@
 require('dotenv').config();
 
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+if (NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required in production');
+}
+
 module.exports = {
   PORT: process.env.PORT || 4000,
-  NODE_ENV: process.env.NODE_ENV || 'development',
+  NODE_ENV,
   DATABASE_URL: process.env.DATABASE_URL,
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,

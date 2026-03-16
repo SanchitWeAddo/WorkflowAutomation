@@ -22,31 +22,38 @@ const PRIORITY_COLORS = {
 
 const STATUS_COLORS = {
   SUBMITTED: 'bg-gray-100 text-gray-700',
+  ACKNOWLEDGED: 'bg-teal-100 text-teal-700',
   ASSIGNED: 'bg-indigo-100 text-indigo-700',
   IN_PROGRESS: 'bg-blue-100 text-blue-700',
   REVIEW: 'bg-yellow-100 text-yellow-700',
   CLIENT_REVIEW: 'bg-purple-100 text-purple-700',
   COMPLETED: 'bg-green-100 text-green-700',
   DELIVERED: 'bg-emerald-100 text-emerald-700',
+  REOPENED: 'bg-orange-100 text-orange-700',
   CANCELLED: 'bg-red-100 text-red-700',
 };
 
 const STATUS_TRANSITIONS = {
-  SUBMITTED: [{ status: 'ASSIGNED', label: 'Assign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' }],
+  SUBMITTED: [{ status: 'ACKNOWLEDGED', label: 'Acknowledge', icon: CheckCircle, color: 'bg-teal-600 hover:bg-teal-700' }],
+  ACKNOWLEDGED: [{ status: 'ASSIGNED', label: 'Assign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' }],
   ASSIGNED: [{ status: 'IN_PROGRESS', label: 'Start Work', icon: Play, color: 'bg-blue-600 hover:bg-blue-700' }],
   IN_PROGRESS: [
     { status: 'REVIEW', label: 'Send to Review', icon: Eye, color: 'bg-yellow-600 hover:bg-yellow-700' },
-    { status: 'ON_HOLD', label: 'Put On Hold', icon: PauseCircle, color: 'bg-gray-600 hover:bg-gray-700' },
+    { status: 'ASSIGNED', label: 'Reassign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' },
   ],
   REVIEW: [
-    { status: 'CLIENT_REVIEW', label: 'Send to Client', icon: Truck, color: 'bg-purple-600 hover:bg-purple-700' },
+    { status: 'COMPLETED', label: 'Approve', icon: CheckCircle, color: 'bg-green-600 hover:bg-green-700' },
     { status: 'IN_PROGRESS', label: 'Return to Dev', icon: RotateCcw, color: 'bg-blue-600 hover:bg-blue-700' },
   ],
+  COMPLETED: [{ status: 'CLIENT_REVIEW', label: 'Send to Client', icon: Truck, color: 'bg-purple-600 hover:bg-purple-700' }],
   CLIENT_REVIEW: [
-    { status: 'COMPLETED', label: 'Mark Complete', icon: CheckCircle, color: 'bg-green-600 hover:bg-green-700' },
-    { status: 'IN_PROGRESS', label: 'Reopen', icon: RotateCcw, color: 'bg-blue-600 hover:bg-blue-700' },
+    { status: 'DELIVERED', label: 'Mark Delivered', icon: Truck, color: 'bg-emerald-600 hover:bg-emerald-700' },
+    { status: 'REOPENED', label: 'Reopen', icon: RotateCcw, color: 'bg-orange-600 hover:bg-orange-700' },
   ],
-  COMPLETED: [{ status: 'DELIVERED', label: 'Mark Delivered', icon: Truck, color: 'bg-emerald-600 hover:bg-emerald-700' }],
+  REOPENED: [
+    { status: 'IN_PROGRESS', label: 'Resume Work', icon: Play, color: 'bg-blue-600 hover:bg-blue-700' },
+    { status: 'ASSIGNED', label: 'Reassign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' },
+  ],
 };
 
 export default function LeadTaskDetail() {

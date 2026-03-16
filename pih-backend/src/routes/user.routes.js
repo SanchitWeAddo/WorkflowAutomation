@@ -47,7 +47,7 @@ router.put(
   authorize('SUPER_ADMIN', 'ADMIN', 'TEAM_LEAD'),
   async (req, res, next) => {
     try {
-      const user = await userService.updateUser(req.params.id, req.body, req.user.orgId);
+      const user = await userService.updateUser(req.params.id, req.body, req.user.orgId, req.user);
       res.json(user);
     } catch (err) {
       next(err);

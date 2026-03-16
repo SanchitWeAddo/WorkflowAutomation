@@ -111,11 +111,29 @@ async function getUser(id, orgId) {
  * @param {{ name?: string, phone?: string, skills?: string[], avatarUrl?: string, maxCapacity?: number, velocity?: number, role?: string, isActive?: boolean }} data
  * @returns {object} Updated user
  */
-async function updateUser(id, data, orgId) {
+async function updateUser(id, data, orgId, requestingUser) {
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing || (orgId && existing.orgId !== orgId)) {
     const err = new Error('User not found');
     err.statusCode = 404;
+    throw err;
+  }
+
+  // Only SUPER_ADMIN and ADMIN can change role or isActive
+  const privilegedFields = ['role', 'isActive'];
+  const callerRole = requestingUser?.role;
+  for (const field of privilegedFields) {
+    if (data[field] !== undefined && !['SUPER_ADMIN', 'ADMIN'].includes(callerRole)) {
+      const err = new Error(`Only admins can update ${field}`);
+      err.statusCode = 403;
+      throw err;
+    }
+  }
+
+  // Prevent escalation: non-SUPER_ADMIN cannot set role to SUPER_ADMIN
+  if (data.role === 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
+    const err = new Error('Only SUPER_ADMIN can assign SUPER_ADMIN role');
+    err.statusCode = 403;
     throw err;
   }
 
