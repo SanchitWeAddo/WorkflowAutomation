@@ -30,13 +30,6 @@ const STATUS_COLORS = {
   CANCELLED: 'bg-red-100 text-red-700',
 };
 
-const EVENT_ICONS = {
-  CREATED: '🆕',
-  STATUS_CHANGE: '🔄',
-  ASSIGNED: '👤',
-  COMMENT: '💬',
-  DEFAULT: '📌',
-};
 
 export default function RequestDetail() {
   const { id } = useParams();
@@ -110,7 +103,6 @@ export default function RequestDetail() {
   }
 
   const comments = task.comments ?? [];
-  const timeline = task.events ?? task.timeline ?? [];
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -194,35 +186,9 @@ export default function RequestDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Timeline */}
-        <div className="lg:col-span-1 rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-gray-900">Timeline</h2>
-          </div>
-          {timeline.length === 0 ? (
-            <div className="px-5 py-8 text-center text-xs text-gray-400">No events yet.</div>
-          ) : (
-            <ul className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
-              {timeline.map((event, i) => (
-                <li key={i} className="px-5 py-3">
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-sm">{EVENT_ICONS[event.type] ?? EVENT_ICONS.DEFAULT}</span>
-                    <div>
-                      <p className="text-xs text-gray-700">{event.description ?? event.message ?? event.type}</p>
-                      <p className="mt-0.5 text-[11px] text-gray-400">
-                        {event.createdAt && formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
+      <div className="grid grid-cols-1 gap-6">
         {/* Comments */}
-        <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm flex flex-col">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm flex flex-col">
           <div className="border-b border-gray-100 px-5 py-4 flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-gray-400" />
             <h2 className="text-sm font-semibold text-gray-900">Comments</h2>

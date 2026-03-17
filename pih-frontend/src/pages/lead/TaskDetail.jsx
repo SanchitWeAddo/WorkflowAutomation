@@ -282,10 +282,14 @@ export default function LeadTaskDetail() {
               <div className="px-5 py-6 text-center text-xs text-gray-400">No events.</div>
             ) : (
               <ul className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
-                {timeline.map((e, i) => (
+                {[...timeline].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((e, i) => (
                   <li key={i} className="px-5 py-2.5 text-xs">
                     <p className="text-gray-700">{e.description ?? e.message ?? e.type}</p>
-                    <p className="mt-0.5 text-gray-400">{e.createdAt && formatDistanceToNow(new Date(e.createdAt), { addSuffix: true })}</p>
+                    <p className="mt-0.5 text-gray-400">
+                      {e.createdAt && format(new Date(e.createdAt), 'MMM d, yyyy h:mm a')}
+                      {' · '}
+                      {e.createdAt && formatDistanceToNow(new Date(e.createdAt), { addSuffix: true })}
+                    </p>
                   </li>
                 ))}
               </ul>
