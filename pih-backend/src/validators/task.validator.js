@@ -8,6 +8,10 @@ const createTaskSchema = z.object({
   projectId: z.string().uuid('Invalid project ID').optional(),
   tags: z.array(z.string()).default([]),
   estimatedHours: z.number().positive().optional(),
+  metadata: z.object({
+    isPrivate: z.boolean().optional(),
+    clientDependent: z.boolean().optional(),
+  }).passthrough().optional(),
 });
 
 const updateStatusSchema = z.object({

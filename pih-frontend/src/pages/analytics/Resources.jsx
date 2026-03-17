@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, Briefcase } from 'lucide-react';
+import { Users, Activity, Briefcase, Search, Filter, X } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useAuthStore } from '../../store/authStore';
@@ -9,6 +9,8 @@ const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: 
 export default function AnalyticsResources() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [skillFilter, setSkillFilter] = useState('');
 
   useEffect(() => {
     fetch('/api/v1/dashboard/resources', { headers: authHeaders() })
@@ -20,9 +22,20 @@ export default function AnalyticsResources() {
 
   if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent" /></div>;
 
-  const members = data?.members || [];
-  const avgUtilization = members.length > 0
-    ? Math.round(members.reduce((sum, m) => sum + (m.utilization || 0), 0) / members.length)
+  const allMembers = data?.members || [];
+
+  // Collect all unique skills for the filter dropdown
+  const allSkills = [...new Set(allMembers.flatMap(m => m.skills || []))].sort();
+
+  // Apply search and skill filters
+  const members = allMembers.filter(m => {
+    const matchesSearch = !searchQuery || m.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSkill = !skillFilter || (m.skills || []).includes(skillFilter);
+    return matchesSearch && matchesSkill;
+  });
+
+  const avgUtilization = allMembers.length > 0
+    ? Math.round(allMembers.reduce((sum, m) => sum + (m.utilization || 0), 0) / allMembers.length)
     : 0;
 
   return (
@@ -51,7 +64,47 @@ export default function AnalyticsResources() {
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">Team Utilization</h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold">Team Utilization</h2>
+          <div className="flex flex-wrap gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name..."
+                className="rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 w-48"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter size={14} className="text-gray-400" />
+              <select
+                value={skillFilter}
+                onChange={(e) => setSkillFilter(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+              >
+                <option value="">All Skills</option>
+                {allSkills.map((skill) => (
+                  <option key={skill} value={skill}>{skill}</option>
+                ))}
+              </select>
+            </div>
+            {(searchQuery || skillFilter) && (
+              <button
+                onClick={() => { setSearchQuery(''); setSkillFilter(''); }}
+                className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+        {(searchQuery || skillFilter) && (
+          <p className="mb-3 text-xs text-gray-500">
+            Showing {members.length} of {allMembers.length} members
+            {skillFilter && <span> with skill <span className="font-medium text-brand">{skillFilter}</span></span>}
+          </p>
+        )}
         <div className="space-y-4">
           {members.map((member) => {
             const util = member.utilization || 0;

@@ -223,6 +223,26 @@ router.post('/:id/comments', authenticate, validate(commentSchema), async (req, 
   }
 });
 
+// Update task metadata (client dependent, private, etc.)
+router.patch(
+  '/:id/metadata',
+  authenticate,
+  authorize('SUPER_ADMIN', 'ADMIN', 'TEAM_LEAD'),
+  async (req, res, next) => {
+    try {
+      const task = await taskService.updateTaskMetadata(
+        req.params.id,
+        req.body,
+        req.user.id,
+        req.user.orgId
+      );
+      res.json(task);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // Upload attachment
 router.post('/:id/attachments', authenticate, upload.single('file'), async (req, res, next) => {
   try {

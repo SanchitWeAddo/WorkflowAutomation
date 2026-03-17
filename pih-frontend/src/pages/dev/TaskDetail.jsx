@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { ArrowLeft, Clock, User, MessageSquare, Play, Send, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Clock, User, MessageSquare, Play, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import clsx from 'clsx';
 
@@ -111,6 +111,17 @@ export default function DevTaskDetail() {
           </div>
         </div>
 
+        {/* Client Dependent flag */}
+        {task.metadata?.clientDependent && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <AlertCircle size={16} className="text-amber-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Client Dependent</p>
+              <p className="text-xs text-amber-600">This ticket has a client dependency. Tech Lead will review the client dependency status.</p>
+            </div>
+          </div>
+        )}
+
         {action && (
           <div className="mt-4 border-t pt-4">
             <button onClick={() => handleStatusUpdate(action.next)} disabled={submitting}
@@ -126,7 +137,7 @@ export default function DevTaskDetail() {
         <h2 className="mb-4 text-lg font-semibold">Activity</h2>
 
         <div className="mb-6 space-y-4">
-          {(task.events || []).map((event) => (
+          {[...(task.events || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((event) => (
             <div key={event.id} className="flex gap-3">
               <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500">
                 {event.actor?.name?.charAt(0) || 'S'}
@@ -134,7 +145,11 @@ export default function DevTaskDetail() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">{event.actor?.name || 'System'}</span>
-                  <span className="text-xs text-gray-400">{formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}</span>
+                  <span className="text-xs text-gray-400">
+                    {format(new Date(event.createdAt), 'MMM d, yyyy h:mm a')}
+                    {' · '}
+                    {formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
+                  </span>
                 </div>
                 <p className="text-sm text-gray-600">
                   {event.eventType === 'comment' ? event.note : (

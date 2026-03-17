@@ -64,6 +64,7 @@ export default function LeadTaskDetail() {
   const [isInternal, setIsInternal] = useState(false);
   const [assigneeId, setAssigneeId] = useState('');
   const [handoffLeadId, setHandoffLeadId] = useState('');
+  const [clientDependent, setClientDependent] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lead-task', id],
@@ -132,6 +133,17 @@ export default function LeadTaskDetail() {
       return res.json();
     },
     onSuccess: () => { setComment(''); invalidate(); },
+  });
+
+  const metadataMutation = useMutation({
+    mutationFn: async (metadata) => {
+      const res = await fetch(`/api/v1/tasks/${id}/metadata`, {
+        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(metadata),
+      });
+      if (!res.ok) throw new Error('Metadata update failed');
+      return res.json();
+    },
+    onSuccess: invalidate,
   });
 
   const uploadMutation = useMutation({
@@ -251,6 +263,37 @@ export default function LeadTaskDetail() {
                 {handoffMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Transfer'}
               </button>
             </div>
+          </div>
+
+          {/* Client Dependent Toggle */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-4 w-4 text-gray-400" /> Client Dependency
+            </h3>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => {
+                  const newVal = !task.metadata?.clientDependent;
+                  metadataMutation.mutate({ clientDependent: newVal });
+                }}
+                className={clsx(
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                  task.metadata?.clientDependent ? 'bg-amber-500' : 'bg-gray-300'
+                )}
+              >
+                <span className={clsx(
+                  'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                  task.metadata?.clientDependent ? 'translate-x-6' : 'translate-x-1'
+                )} />
+              </button>
+              <span className="text-sm text-gray-700">
+                {task.metadata?.clientDependent ? 'Client Dependent' : 'Not Client Dependent'}
+              </span>
+            </label>
+            {task.metadata?.clientDependent && (
+              <p className="mt-2 text-xs text-amber-600">This ticket is blocked on client input. Visible to developer.</p>
+            )}
           </div>
 
           {/* Attachments */}

@@ -4,7 +4,7 @@ const { calculateSLADeadline } = require('../utils/sla');
 const { validateTransition, getTimestampField } = require('../utils/stateMachine');
 const logger = require('../utils/logger');
 
-async function createTask({ title, description, priority = 'NORMAL', category, projectId, orgId, createdById, source = 'portal', sourceRef, aiParsed = false, aiConfidence, tags, estimatedHours }) {
+async function createTask({ title, description, priority = 'NORMAL', category, projectId, orgId, createdById, source = 'portal', sourceRef, aiParsed = false, aiConfidence, tags, estimatedHours, metadata }) {
   const ticketNumber = await generateTicketNumber();
 
   let slaConfig = {};
@@ -32,6 +32,7 @@ async function createTask({ title, description, priority = 'NORMAL', category, p
       slaDeadline,
       tags: tags || [],
       estimatedHours,
+      metadata: metadata || {},
     },
     include: {
       project: true,
@@ -305,6 +306,52 @@ async function acceptTask(taskId, accepted, actorId, feedback, orgId) {
   return updated;
 }
 
+async function updateTaskMetadata(taskId, metadata, actorId, orgId) {
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  if (!task || (orgId && task.orgId !== orgId)) {
+    const err = new Error('Task not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const existingMeta = typeof task.metadata === 'object' ? task.metadata : {};
+  const mergedMeta = { ...existingMeta, ...metadata };
+
+  const updated = await prisma.task.update({
+    where: { id: taskId },
+    data: { metadata: mergedMeta },
+  });
+
+  if (metadata.clientDependent !== undefined) {
+    await prisma.taskEvent.create({
+      data: {
+        taskId,
+        eventType: 'metadata_update',
+        actorId,
+        actorType: 'user',
+        note: metadata.clientDependent ? 'Marked as client dependent' : 'Removed client dependent flag',
+        payload: { clientDependent: metadata.clientDependent },
+      },
+    });
+  }
+
+  if (metadata.isPrivate !== undefined) {
+    await prisma.taskEvent.create({
+      data: {
+        taskId,
+        eventType: 'metadata_update',
+        actorId,
+        actorType: 'user',
+        note: metadata.isPrivate ? 'Marked as private task' : 'Removed private flag',
+        payload: { isPrivate: metadata.isPrivate },
+      },
+    });
+  }
+
+  logger.info(`Task ${task.ticketNumber} metadata updated`, { taskId, actorId, metadata });
+  return updated;
+}
+
 async function addComment(taskId, actorId, content, isInternal = false, orgId) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
   if (!task || (orgId && task.orgId !== orgId)) {
@@ -375,4 +422,5 @@ module.exports = {
   acceptTask,
   addComment,
   addAttachment,
+  updateTaskMetadata,
 };

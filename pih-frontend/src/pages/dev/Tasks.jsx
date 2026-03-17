@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
 
@@ -25,13 +25,18 @@ export default function DevTasks() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
+
+  const activeFilterCount = [statusFilter, priorityFilter].filter(Boolean).length;
 
   const fetchTasks = () => {
     setLoading(true);
     const params = new URLSearchParams({ assigneeId: user?.id, page, limit: 20 });
     if (search) params.set('search', search);
     if (statusFilter) params.set('status', statusFilter);
+    if (priorityFilter) params.set('priority', priorityFilter);
     fetch(`/api/v1/tasks?${params}`, { headers: authHeaders() })
       .then(r => r.json())
       .then(data => {
@@ -42,7 +47,7 @@ export default function DevTasks() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchTasks(); }, [page, statusFilter, user?.id]);
+  useEffect(() => { fetchTasks(); }, [page, statusFilter, priorityFilter, user?.id]);
 
   return (
     <div>
@@ -51,22 +56,60 @@ export default function DevTasks() {
         <p className="text-sm text-gray-500">All tasks assigned to you</p>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <form onSubmit={(e) => { e.preventDefault(); fetchTasks(); }} className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks..."
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20" />
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <form onSubmit={(e) => { e.preventDefault(); fetchTasks(); }} className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by title or ticket number..."
+                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20" />
+            </div>
+          </form>
+          <button
+            onClick={() => setShowFilters(f => !f)}
+            className={clsx(
+              'inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+              showFilters || activeFilterCount > 0
+                ? 'border-brand bg-brand/5 text-brand'
+                : 'border-gray-300 text-gray-700 hover:border-gray-400'
+            )}
+          >
+            <Filter size={16} />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white">{activeFilterCount}</span>
+            )}
+          </button>
+          {activeFilterCount > 0 && (
+            <button
+              onClick={() => { setStatusFilter(''); setPriorityFilter(''); }}
+              className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <X size={14} /> Clear
+            </button>
+          )}
+        </div>
+        {showFilters && (
+          <div className="flex flex-wrap gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none">
+              <option value="">All Statuses</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="REVIEW">Review</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="REOPENED">Reopened</option>
+            </select>
+            <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none">
+              <option value="">All Priorities</option>
+              <option value="URGENT">Urgent</option>
+              <option value="HIGH">High</option>
+              <option value="NORMAL">Normal</option>
+              <option value="LOW">Low</option>
+            </select>
           </div>
-        </form>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none">
-          <option value="">All Statuses</option>
-          <option value="ASSIGNED">Assigned</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="REVIEW">Review</option>
-          <option value="COMPLETED">Completed</option>
-        </select>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
