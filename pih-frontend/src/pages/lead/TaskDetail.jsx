@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Calendar, Clock, User, FolderOpen, AlertTriangle, Send,
   Loader2, MessageSquare, UserPlus, ArrowRightLeft, Upload, Eye, EyeOff,
-  Play, CheckCircle, RotateCcw, Truck, PauseCircle,
+  Play, CheckCircle, RotateCcw, Truck,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
@@ -62,7 +62,6 @@ export default function LeadTaskDetail() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [comment, setComment] = useState('');
-  const [isInternal, setIsInternal] = useState(false);
   const [commentVisibility, setCommentVisibility] = useState('all');
   const [assigneeId, setAssigneeId] = useState('');
   const [handoffLeadId, setHandoffLeadId] = useState('');
@@ -87,8 +86,16 @@ export default function LeadTaskDetail() {
 
   const task = data?.data ?? data;
   const users = usersData?.data ?? usersData?.users ?? [];
-  const comments = task?.comments ?? [];
-  const timeline = task?.events ?? task?.timeline ?? [];
+  const allEvents = task?.events ?? task?.timeline ?? [];
+  const comments = allEvents.filter(e => e.eventType === 'comment').map(e => ({
+    id: e.id,
+    content: e.note,
+    author: e.actor,
+    authorName: e.actor?.name,
+    internal: e.payload?.isInternal,
+    createdAt: e.createdAt,
+  }));
+  const timeline = allEvents.filter(e => e.eventType !== 'comment');
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['lead-task', id] });
 
@@ -117,7 +124,7 @@ export default function LeadTaskDetail() {
   const handoffMutation = useMutation({
     mutationFn: async (leadId) => {
       const res = await fetch(`/api/v1/tasks/${id}/handoff`, {
-        method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ leadId }),
+        method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ newLeadId: leadId }),
       });
       if (!res.ok) throw new Error('Handoff failed');
       return res.json();
@@ -339,8 +346,18 @@ export default function LeadTaskDetail() {
               <ul className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
                 {timeline.map((e, i) => (
                   <li key={i} className="px-5 py-2.5 text-xs">
-                    <p className="text-gray-700">{e.description ?? e.message ?? e.type}</p>
-                    <p className="mt-0.5 text-gray-400">{e.createdAt && formatDistanceToNow(new Date(e.createdAt), { addSuffix: true })}</p>
+                    <p className="text-gray-700">
+                      {e.note || (
+                        <>
+                          <span className="capitalize">{e.eventType?.replace(/_/g, ' ')}</span>
+                          {e.fromStatus && e.toStatus && <span className="text-gray-400"> · {e.fromStatus} → {e.toStatus}</span>}
+                        </>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-gray-400">
+                      {e.actor?.name && <span>{e.actor.name} · </span>}
+                      {e.createdAt && formatDistanceToNow(new Date(e.createdAt), { addSuffix: true })}
+                    </p>
                   </li>
                 ))}
               </ul>

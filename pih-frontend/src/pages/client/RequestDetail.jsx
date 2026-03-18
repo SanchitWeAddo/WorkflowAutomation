@@ -121,7 +121,14 @@ export default function RequestDetail() {
     );
   }
 
-  const comments = task.comments ?? [];
+  const allEvents = task.events ?? [];
+  const comments = allEvents.filter(e => e.eventType === 'comment').map(e => ({
+    id: e.id,
+    content: e.note,
+    author: e.actor,
+    authorName: e.actor?.name,
+    createdAt: e.createdAt,
+  }));
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
