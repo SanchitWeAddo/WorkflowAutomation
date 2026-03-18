@@ -10,6 +10,7 @@ const {
   assignTaskSchema,
   commentSchema,
   parseTaskSchema,
+  updateTaskSchema,
 } = require('../validators/task.validator');
 const taskService = require('../services/task.service');
 const aiService = require('../services/ai.service');
@@ -39,7 +40,7 @@ router.get('/', authenticate, async (req, res, next) => {
 // Get single task
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const task = await taskService.getTask(req.params.id, req.user.orgId);
+    const task = await taskService.getTask(req.params.id, req.user.orgId, req.user.role);
     res.json(task);
   } catch (err) {
     next(err);
@@ -79,6 +80,32 @@ router.post('/parse', authenticate, validate(parseTaskSchema), async (req, res, 
   }
 });
 
+// Update task details (TL/Admin)
+router.patch(
+  '/:id',
+  authenticate,
+  authorize('SUPER_ADMIN', 'ADMIN', 'TEAM_LEAD'),
+  validate(updateTaskSchema),
+  async (req, res, next) => {
+    try {
+      const task = await taskService.updateTask(
+        req.params.id,
+        req.body,
+        req.user.id,
+        req.user.orgId
+      );
+
+      try {
+        getIO().to(`task:${task.id}`).to(`org:${req.user.orgId}`).emit('task:updated', task);
+      } catch (_) {}
+
+      res.json(task);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // Update task status
 router.patch('/:id/status', authenticate, validate(updateStatusSchema), async (req, res, next) => {
   try {
@@ -114,7 +141,13 @@ router.patch(
         req.body.assigneeId,
         req.user.id,
         req.body.note,
-        req.user.orgId
+        req.user.orgId,
+        {
+          taskBrief: req.body.taskBrief,
+          estimatedHours: req.body.estimatedHours,
+          startDate: req.body.startDate,
+          dueDate: req.body.dueDate,
+        }
       );
 
       try {

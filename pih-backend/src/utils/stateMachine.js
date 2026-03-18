@@ -10,8 +10,10 @@ const TRANSITIONS = {
   ACKNOWLEDGED:  ['ASSIGNED', 'CANCELLED'],
   ASSIGNED:      ['IN_PROGRESS', 'ASSIGNED', 'CANCELLED'],
   IN_PROGRESS:   ['REVIEW', 'ASSIGNED'],
-  REVIEW:        ['COMPLETED', 'IN_PROGRESS'],
+  REVIEW:        ['COMPLETED', 'IN_PROGRESS', 'QA_REVIEW'],
   COMPLETED:     ['CLIENT_REVIEW'],
+  QA_REVIEW:     ['QA_FAILED', 'COMPLETED'],
+  QA_FAILED:     ['IN_PROGRESS', 'ASSIGNED'],
   CLIENT_REVIEW: ['DELIVERED', 'REOPENED'],
   REOPENED:      ['IN_PROGRESS', 'ASSIGNED'],
   DELIVERED:     [],
@@ -19,31 +21,36 @@ const TRANSITIONS = {
 };
 
 const ROLE_PERMISSIONS = {
-  SYSTEM: ['SUBMITTED\u2192ACKNOWLEDGED'],
+  SYSTEM: ['SUBMITTED→ACKNOWLEDGED'],
   SUPER_ADMIN: Object.values(TRANSITIONS).flatMap((targets, i) => {
     const source = Object.keys(TRANSITIONS)[i];
-    return targets.map((t) => `${source}\u2192${t}`);
+    return targets.map((t) => `${source}→${t}`);
   }),
   ADMIN: Object.values(TRANSITIONS).flatMap((targets, i) => {
     const source = Object.keys(TRANSITIONS)[i];
-    return targets.map((t) => `${source}\u2192${t}`);
+    return targets.map((t) => `${source}→${t}`);
   }),
   TEAM_LEAD: [
-    'ACKNOWLEDGED\u2192ASSIGNED',
-    'REVIEW\u2192COMPLETED',
-    'REVIEW\u2192IN_PROGRESS',
-    'COMPLETED\u2192CLIENT_REVIEW',
-    'ASSIGNED\u2192ASSIGNED',
-    'REOPENED\u2192ASSIGNED',
+    'ACKNOWLEDGED→ASSIGNED',
+    'REVIEW→COMPLETED',
+    'REVIEW→IN_PROGRESS',
+    'REVIEW→QA_REVIEW',
+    'QA_REVIEW→QA_FAILED',
+    'QA_REVIEW→COMPLETED',
+    'QA_FAILED→IN_PROGRESS',
+    'QA_FAILED→ASSIGNED',
+    'COMPLETED→CLIENT_REVIEW',
+    'ASSIGNED→ASSIGNED',
+    'REOPENED→ASSIGNED',
   ],
   DEVELOPER: [
-    'ASSIGNED\u2192IN_PROGRESS',
-    'IN_PROGRESS\u2192REVIEW',
-    'REOPENED\u2192IN_PROGRESS',
+    'ASSIGNED→IN_PROGRESS',
+    'IN_PROGRESS→REVIEW',
+    'REOPENED→IN_PROGRESS',
   ],
   CLIENT: [
-    'CLIENT_REVIEW\u2192DELIVERED',
-    'CLIENT_REVIEW\u2192REOPENED',
+    'CLIENT_REVIEW→DELIVERED',
+    'CLIENT_REVIEW→REOPENED',
   ],
 };
 
@@ -62,13 +69,13 @@ function validateTransition(currentStatus, newStatus, role) {
 
   if (!allowed.includes(newStatus)) {
     const err = new Error(
-      `Invalid transition: ${currentStatus} \u2192 ${newStatus}`
+      `Invalid transition: ${currentStatus} → ${newStatus}`
     );
     err.statusCode = 400;
     throw err;
   }
 
-  const key = `${currentStatus}\u2192${newStatus}`;
+  const key = `${currentStatus}→${newStatus}`;
   const rolePerms = ROLE_PERMISSIONS[role] || [];
 
   if (!rolePerms.includes(key)) {

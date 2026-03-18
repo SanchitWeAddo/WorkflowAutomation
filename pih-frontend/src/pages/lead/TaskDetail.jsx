@@ -25,28 +25,36 @@ const STATUS_COLORS = {
   ASSIGNED: 'bg-indigo-100 text-indigo-700',
   IN_PROGRESS: 'bg-blue-100 text-blue-700',
   REVIEW: 'bg-yellow-100 text-yellow-700',
+  QA_REVIEW: 'bg-cyan-100 text-cyan-700',
+  QA_FAILED: 'bg-red-100 text-red-700',
   CLIENT_REVIEW: 'bg-purple-100 text-purple-700',
   COMPLETED: 'bg-green-100 text-green-700',
   DELIVERED: 'bg-emerald-100 text-emerald-700',
+  REOPENED: 'bg-orange-100 text-orange-700',
   CANCELLED: 'bg-red-100 text-red-700',
 };
 
 const STATUS_TRANSITIONS = {
-  SUBMITTED: [{ status: 'ASSIGNED', label: 'Assign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' }],
+  ACKNOWLEDGED: [{ status: 'ASSIGNED', label: 'Assign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' }],
   ASSIGNED: [{ status: 'IN_PROGRESS', label: 'Start Work', icon: Play, color: 'bg-blue-600 hover:bg-blue-700' }],
   IN_PROGRESS: [
     { status: 'REVIEW', label: 'Send to Review', icon: Eye, color: 'bg-yellow-600 hover:bg-yellow-700' },
-    { status: 'ON_HOLD', label: 'Put On Hold', icon: PauseCircle, color: 'bg-gray-600 hover:bg-gray-700' },
   ],
   REVIEW: [
-    { status: 'CLIENT_REVIEW', label: 'Send to Client', icon: Truck, color: 'bg-purple-600 hover:bg-purple-700' },
+    { status: 'COMPLETED', label: 'Approve', icon: CheckCircle, color: 'bg-green-600 hover:bg-green-700' },
+    { status: 'QA_REVIEW', label: 'Send to QA', icon: Eye, color: 'bg-cyan-600 hover:bg-cyan-700' },
     { status: 'IN_PROGRESS', label: 'Return to Dev', icon: RotateCcw, color: 'bg-blue-600 hover:bg-blue-700' },
   ],
-  CLIENT_REVIEW: [
-    { status: 'COMPLETED', label: 'Mark Complete', icon: CheckCircle, color: 'bg-green-600 hover:bg-green-700' },
-    { status: 'IN_PROGRESS', label: 'Reopen', icon: RotateCcw, color: 'bg-blue-600 hover:bg-blue-700' },
+  QA_REVIEW: [
+    { status: 'COMPLETED', label: 'QA Approved', icon: CheckCircle, color: 'bg-green-600 hover:bg-green-700' },
+    { status: 'QA_FAILED', label: 'QA Failed', icon: RotateCcw, color: 'bg-red-600 hover:bg-red-700' },
   ],
-  COMPLETED: [{ status: 'DELIVERED', label: 'Mark Delivered', icon: Truck, color: 'bg-emerald-600 hover:bg-emerald-700' }],
+  QA_FAILED: [
+    { status: 'IN_PROGRESS', label: 'Return to Dev', icon: RotateCcw, color: 'bg-blue-600 hover:bg-blue-700' },
+    { status: 'ASSIGNED', label: 'Reassign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' },
+  ],
+  COMPLETED: [{ status: 'CLIENT_REVIEW', label: 'Send to Client', icon: Truck, color: 'bg-purple-600 hover:bg-purple-700' }],
+  REOPENED: [{ status: 'ASSIGNED', label: 'Reassign', icon: UserPlus, color: 'bg-indigo-600 hover:bg-indigo-700' }],
 };
 
 export default function LeadTaskDetail() {
@@ -55,6 +63,7 @@ export default function LeadTaskDetail() {
   const fileInputRef = useRef(null);
   const [comment, setComment] = useState('');
   const [isInternal, setIsInternal] = useState(false);
+  const [commentVisibility, setCommentVisibility] = useState('all');
   const [assigneeId, setAssigneeId] = useState('');
   const [handoffLeadId, setHandoffLeadId] = useState('');
 
@@ -96,7 +105,7 @@ export default function LeadTaskDetail() {
 
   const statusMutation = useMutation({
     mutationFn: async (status) => {
-      const res = await fetch(`/api/v1/tasks/${id}`, {
+      const res = await fetch(`/api/v1/tasks/${id}/status`, {
         method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error('Status change failed');
@@ -119,12 +128,12 @@ export default function LeadTaskDetail() {
   const commentMutation = useMutation({
     mutationFn: async ({ content, internal }) => {
       const res = await fetch(`/api/v1/tasks/${id}/comments`, {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ content, internal }),
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ content, isInternal: internal }),
       });
       if (!res.ok) throw new Error('Comment failed');
       return res.json();
     },
-    onSuccess: () => { setComment(''); invalidate(); },
+    onSuccess: () => { setComment(''); setCommentVisibility('all'); invalidate(); },
   });
 
   const uploadMutation = useMutation({
@@ -182,6 +191,59 @@ export default function LeadTaskDetail() {
           <div className="flex items-center gap-2 text-sm"><User className="h-4 w-4 text-gray-400" /><div><p className="text-xs text-gray-400">Assignee</p><p className="font-medium text-gray-700">{task.assignee?.name ?? 'Unassigned'}</p></div></div>
           <div className="flex items-center gap-2 text-sm"><FolderOpen className="h-4 w-4 text-gray-400" /><div><p className="text-xs text-gray-400">Project</p><p className="font-medium text-gray-700">{task.project?.name ?? task.category ?? '-'}</p></div></div>
         </div>
+
+        {/* Internal Dates (TL only) */}
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-400">Start Date</p>
+              <p className="font-medium text-gray-700">{task.startDate ? format(new Date(task.startDate), 'MMM d, yyyy') : 'Not set'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-400">Due Date</p>
+              <p className="font-medium text-gray-700">{task.dueDate ? format(new Date(task.dueDate), 'MMM d, yyyy') : 'Not set'}</p>
+            </div>
+          </div>
+          {task.estimatedHours != null && (
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-400">Est. Hours</p>
+                <p className="font-medium text-gray-700">{task.estimatedHours}h</p>
+              </div>
+            </div>
+          )}
+          {task.isClientDependent && (
+            <div className="flex items-center gap-2 text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <div>
+                <p className="text-xs text-gray-400">Status</p>
+                <p className="font-medium text-amber-600">Client Dependent</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Multiple Assignees */}
+        {(task.taskAssignees ?? []).length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs text-gray-400 mb-1.5">Team</p>
+            <div className="flex flex-wrap gap-2">
+              {task.taskAssignees.map((ta) => (
+                <span key={ta.id} className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                  <User className="h-3 w-3" /> {ta.user?.name}
+                  {ta.user?.skills?.length > 0 && (
+                    <span className="text-indigo-400">({ta.user.skills.slice(0, 2).join(', ')})</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Status Actions */}
         {transitions.length > 0 && (
@@ -315,14 +377,14 @@ export default function LeadTaskDetail() {
             )}
           </div>
 
-          <form onSubmit={(e) => { e.preventDefault(); if (comment.trim()) commentMutation.mutate({ content: comment.trim(), internal: isInternal }); }}
+          <form onSubmit={(e) => { e.preventDefault(); if (comment.trim()) commentMutation.mutate({ content: comment.trim(), internal: commentVisibility === 'internal' }); }}
             className="border-t border-gray-100 p-4 space-y-2">
             <div className="flex gap-2">
               <input
                 type="text"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder={isInternal ? 'Write an internal note...' : 'Write a comment...'}
+                placeholder={commentVisibility === 'internal' ? 'Write an internal note...' : 'Write a comment...'}
                 className="flex-1 rounded-lg border border-gray-300 px-3.5 py-2 text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
               />
               <button type="submit" disabled={!comment.trim() || commentMutation.isPending}
@@ -330,12 +392,23 @@ export default function LeadTaskDetail() {
                 {commentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </div>
-            <button type="button" onClick={() => setIsInternal(p => !p)}
-              className={clsx('inline-flex items-center gap-1.5 text-xs font-medium transition-colors',
-                isInternal ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600')}>
-              {isInternal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              {isInternal ? 'Internal note (team only)' : 'Visible to client'}
-            </button>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500">Visibility:</span>
+              {[
+                { value: 'all', label: 'Visible to all', icon: Eye, color: 'text-gray-500' },
+                { value: 'internal', label: 'Internal (team only)', icon: EyeOff, color: 'text-amber-600' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setCommentVisibility(opt.value)}
+                  className={clsx('inline-flex items-center gap-1 text-xs font-medium transition-colors',
+                    commentVisibility === opt.value ? opt.color : 'text-gray-300 hover:text-gray-500')}
+                >
+                  <opt.icon className="h-3.5 w-3.5" /> {opt.label}
+                </button>
+              ))}
+            </div>
           </form>
         </div>
       </div>

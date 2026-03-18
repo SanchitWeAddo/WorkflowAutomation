@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Send, Sparkles, Loader2, ArrowLeft } from 'lucide-react';
+import { Send, Sparkles, Loader2, ArrowLeft, Upload, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -18,10 +18,12 @@ const PRIORITIES = [
 
 export default function NewRequest() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const [form, setForm] = useState({ title: '', description: '', priority: 'NORMAL', category: '' });
   const [errors, setErrors] = useState({});
   const [useAi, setUseAi] = useState(false);
   const [aiParsing, setAiParsing] = useState(false);
+  const [attachments, setAttachments] = useState([]);
 
   const set = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -34,6 +36,16 @@ export default function NewRequest() {
     if (!form.description.trim()) e.description = 'Description is required';
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    setAttachments(prev => [...prev, ...files]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const parseWithAi = async () => {
@@ -76,7 +88,20 @@ export default function NewRequest() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message ?? 'Failed to create request');
       }
-      return res.json();
+      const task = await res.json();
+
+      // Upload attachments if any
+      for (const file of attachments) {
+        const formData = new FormData();
+        formData.append('file', file);
+        await fetch(`/api/v1/tasks/${task.id}/attachments`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getToken()}` },
+          body: formData,
+        });
+      }
+
+      return task;
     },
     onSuccess: () => navigate('/client/requests'),
   });
@@ -207,6 +232,34 @@ export default function NewRequest() {
                 className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm shadow-sm outline-none focus:ring-2 focus:ring-[#0f766e]/20 focus:border-[#0f766e]"
               />
             </div>
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <Upload className="inline h-4 w-4 mr-1" />
+              Attachments
+            </label>
+            {attachments.length > 0 && (
+              <ul className="mb-2 space-y-1">
+                {attachments.map((file, i) => (
+                  <li key={i} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-1.5 text-sm">
+                    <span className="truncate text-gray-700">{file.name}</span>
+                    <button type="button" onClick={() => removeAttachment(i)} className="ml-2 text-gray-400 hover:text-red-500">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-xs font-medium text-gray-500 hover:border-[#14b8a6] hover:text-[#0f766e] transition-colors"
+            >
+              Click to attach files
+            </button>
           </div>
         </div>
 

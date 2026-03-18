@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { ArrowLeft, Clock, User, MessageSquare, Play, Send, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Clock, User, MessageSquare, Play, Send, CheckCircle, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import clsx from 'clsx';
 
@@ -110,6 +110,19 @@ export default function DevTaskDetail() {
             <p className="font-medium">{task.lead?.name || 'Unassigned'}</p>
           </div>
         </div>
+
+        {task.isClientDependent && (
+          <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-medium text-amber-700">
+            <AlertTriangle size={12} /> Client Dependent
+          </div>
+        )}
+
+        {task.taskBrief && (
+          <div className="mt-4 rounded-lg bg-blue-50 border border-blue-100 p-3">
+            <p className="text-xs font-medium text-blue-700 mb-1">Task Brief</p>
+            <p className="text-sm text-blue-900 whitespace-pre-wrap">{task.taskBrief}</p>
+          </div>
+        )}
 
         {action && (
           <div className="mt-4 border-t pt-4">
