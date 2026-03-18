@@ -4,7 +4,7 @@ const { calculateSLADeadline } = require('../utils/sla');
 const { validateTransition, getTimestampField } = require('../utils/stateMachine');
 const logger = require('../utils/logger');
 
-async function createTask({ title, description, priority = 'NORMAL', category, projectId, orgId, createdById, source = 'portal', sourceRef, aiParsed = false, aiConfidence, tags, estimatedHours }) {
+async function createTask({ title, description, priority = 'NORMAL', category, projectId, orgId, createdById, source = 'portal', sourceRef, aiParsed = false, aiConfidence, tags, estimatedHours, startDate, dueDate, taskBrief, isPrivate = false, isClientDependent = false, qaRequired = false, requiredSkills, assigneeIds, dependsOnTaskIds }) {
   const ticketNumber = await generateTicketNumber();
 
   let slaConfig = {};
@@ -32,12 +32,40 @@ async function createTask({ title, description, priority = 'NORMAL', category, p
       slaDeadline,
       tags: tags || [],
       estimatedHours,
+      startDate: startDate ? new Date(startDate) : null,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      taskBrief,
+      isPrivate,
+      isClientDependent,
+      qaRequired,
+      requiredSkills: requiredSkills || [],
     },
     include: {
       project: true,
       createdBy: { select: { id: true, name: true, email: true, role: true } },
     },
   });
+
+  // Create multiple assignees if provided
+  if (assigneeIds && assigneeIds.length > 0) {
+    await prisma.taskAssignee.createMany({
+      data: assigneeIds.map((userId, index) => ({
+        taskId: task.id,
+        userId,
+        orderIndex: index,
+      })),
+    });
+  }
+
+  // Create dependencies if provided
+  if (dependsOnTaskIds && dependsOnTaskIds.length > 0) {
+    await prisma.taskDependency.createMany({
+      data: dependsOnTaskIds.map((depId) => ({
+        taskId: task.id,
+        dependsOnTaskId: depId,
+      })),
+    });
+  }
 
   await prisma.taskEvent.create({
     data: {
@@ -55,7 +83,7 @@ async function createTask({ title, description, priority = 'NORMAL', category, p
   return task;
 }
 
-async function getTask(id, orgId) {
+async function getTask(id, orgId, userRole) {
   const task = await prisma.task.findUnique({
     where: { id },
     include: {
@@ -66,6 +94,16 @@ async function getTask(id, orgId) {
       events: { orderBy: { createdAt: 'desc' }, include: { actor: { select: { id: true, name: true, role: true } } } },
       notifications: { orderBy: { createdAt: 'desc' }, take: 20 },
       attachments: { orderBy: { createdAt: 'desc' } },
+      taskAssignees: {
+        include: { user: { select: { id: true, name: true, email: true, role: true, skills: true, avatarUrl: true } } },
+        orderBy: { orderIndex: 'asc' },
+      },
+      dependsOn: {
+        include: { dependsOnTask: { select: { id: true, ticketNumber: true, title: true, status: true } } },
+      },
+      dependedBy: {
+        include: { task: { select: { id: true, ticketNumber: true, title: true, status: true } } },
+      },
     },
   });
 
@@ -81,10 +119,21 @@ async function getTask(id, orgId) {
     throw err;
   }
 
+  // Filter internal comments for CLIENT role
+  if (userRole === 'CLIENT') {
+    task.events = task.events.filter(e => {
+      if (e.eventType === 'comment') {
+        const payload = e.payload || {};
+        return !payload.isInternal;
+      }
+      return true;
+    });
+  }
+
   return task;
 }
 
-async function getTasks({ status, priority, assigneeId, createdById, projectId, orgId, page = 1, limit = 20, search }) {
+async function getTasks({ status, priority, assigneeId, createdById, projectId, orgId, page = 1, limit = 20, search, isClientDependent, requiredSkill }) {
   const where = {};
   if (status) where.status = status;
   if (priority) where.priority = priority;
@@ -92,6 +141,7 @@ async function getTasks({ status, priority, assigneeId, createdById, projectId, 
   if (createdById) where.createdById = createdById;
   if (projectId) where.projectId = projectId;
   if (orgId) where.orgId = orgId;
+  if (isClientDependent !== undefined) where.isClientDependent = isClientDependent === 'true' || isClientDependent === true;
   if (search) {
     where.OR = [
       { title: { contains: search, mode: 'insensitive' } },
@@ -112,6 +162,10 @@ async function getTasks({ status, priority, assigneeId, createdById, projectId, 
         assignee: { select: { id: true, name: true, avatarUrl: true } },
         createdBy: { select: { id: true, name: true } },
         lead: { select: { id: true, name: true } },
+        taskAssignees: {
+          include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     }),
     prisma.task.count({ where }),
@@ -176,7 +230,7 @@ async function updateStatus(taskId, newStatus, actorId, role, note, orgId) {
   return updated;
 }
 
-async function assignTask(taskId, assigneeId, actorId, note, orgId) {
+async function assignTask(taskId, assigneeId, actorId, note, orgId, { taskBrief, estimatedHours, startDate, dueDate } = {}) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
   if (!task || (orgId && task.orgId !== orgId)) {
     const err = new Error('Task not found');
@@ -193,6 +247,12 @@ async function assignTask(taskId, assigneeId, actorId, note, orgId) {
 
   const updateData = { assigneeId, assignedAt: new Date() };
 
+  // Update additional fields if provided during assignment
+  if (taskBrief) updateData.taskBrief = taskBrief;
+  if (estimatedHours) updateData.estimatedHours = estimatedHours;
+  if (startDate) updateData.startDate = new Date(startDate);
+  if (dueDate) updateData.dueDate = new Date(dueDate);
+
   // Transition to ASSIGNED if currently in a valid state
   if (['SUBMITTED', 'ACKNOWLEDGED', 'ASSIGNED', 'REOPENED'].includes(task.status)) {
     updateData.status = 'ASSIGNED';
@@ -204,6 +264,13 @@ async function assignTask(taskId, assigneeId, actorId, note, orgId) {
     include: {
       assignee: { select: { id: true, name: true, email: true } },
     },
+  });
+
+  // Also add to taskAssignees
+  await prisma.taskAssignee.upsert({
+    where: { taskId_userId: { taskId, userId: assigneeId } },
+    create: { taskId, userId: assigneeId },
+    update: { isActive: true },
   });
 
   await prisma.taskEvent.create({
@@ -282,6 +349,10 @@ async function acceptTask(taskId, accepted, actorId, feedback, orgId) {
   const updateData = { status: newStatus };
   if (timestampField) {
     updateData[timestampField] = new Date();
+  }
+  // Store client feedback for collaboration
+  if (feedback && !accepted) {
+    updateData.clientFeedback = feedback;
   }
 
   const updated = await prisma.task.update({
@@ -365,6 +436,84 @@ async function addAttachment(taskId, file, uploadedBy, orgId) {
   return attachment;
 }
 
+async function updateTask(taskId, updates, actorId, orgId) {
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  if (!task || (orgId && task.orgId !== orgId)) {
+    const err = new Error('Task not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const updateData = {};
+  const allowedFields = ['startDate', 'dueDate', 'taskBrief', 'estimatedHours', 'isClientDependent', 'qaRequired', 'isPrivate', 'clientFeedback', 'requiredSkills'];
+
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      if (['startDate', 'dueDate'].includes(field)) {
+        updateData[field] = updates[field] ? new Date(updates[field]) : null;
+      } else {
+        updateData[field] = updates[field];
+      }
+    }
+  }
+
+  const updated = await prisma.task.update({
+    where: { id: taskId },
+    data: updateData,
+    include: {
+      project: true,
+      assignee: { select: { id: true, name: true, email: true } },
+      taskAssignees: {
+        include: { user: { select: { id: true, name: true, email: true, skills: true } } },
+        orderBy: { orderIndex: 'asc' },
+      },
+    },
+  });
+
+  // Handle multiple assignees update
+  if (updates.assigneeIds) {
+    // Remove old assignees
+    await prisma.taskAssignee.deleteMany({ where: { taskId } });
+    // Add new ones
+    if (updates.assigneeIds.length > 0) {
+      await prisma.taskAssignee.createMany({
+        data: updates.assigneeIds.map((userId, index) => ({
+          taskId,
+          userId,
+          orderIndex: index,
+        })),
+      });
+    }
+  }
+
+  // Handle dependencies update
+  if (updates.dependsOnTaskIds) {
+    await prisma.taskDependency.deleteMany({ where: { taskId } });
+    if (updates.dependsOnTaskIds.length > 0) {
+      await prisma.taskDependency.createMany({
+        data: updates.dependsOnTaskIds.map((depId) => ({
+          taskId,
+          dependsOnTaskId: depId,
+        })),
+      });
+    }
+  }
+
+  await prisma.taskEvent.create({
+    data: {
+      taskId,
+      eventType: 'task_updated',
+      actorId,
+      actorType: 'user',
+      note: 'Task details updated',
+      payload: { updatedFields: Object.keys(updateData) },
+    },
+  });
+
+  logger.info(`Task ${task.ticketNumber} updated`, { taskId, actorId, fields: Object.keys(updateData) });
+  return updated;
+}
+
 module.exports = {
   createTask,
   getTask,
@@ -375,4 +524,5 @@ module.exports = {
   acceptTask,
   addComment,
   addAttachment,
+  updateTask,
 };

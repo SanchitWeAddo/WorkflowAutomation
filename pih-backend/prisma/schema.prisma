@@ -45,6 +45,7 @@ model User {
   events        TaskEvent[]
   notifications Notification[] @relation("recipient")
   capacityLogs  TeamCapacity[]
+  taskAssignments TaskAssignee[]
 }
 
 enum Role {
@@ -96,6 +97,15 @@ model Task {
   actualHours   Float?
   tags          String[]   @default([])
   metadata      Json       @default("{}")
+  // New fields for feedback items
+  startDate       DateTime?
+  dueDate         DateTime?
+  taskBrief       String?
+  isPrivate       Boolean    @default(false)
+  isClientDependent Boolean  @default(false)
+  qaRequired      Boolean    @default(false)
+  clientFeedback  String?
+  requiredSkills  String[]   @default([])
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   acknowledgedAt DateTime?
@@ -106,6 +116,9 @@ model Task {
   events        TaskEvent[]
   notifications Notification[]
   attachments   Attachment[]
+  taskAssignees TaskAssignee[]
+  dependsOn     TaskDependency[] @relation("dependentTask")
+  dependedBy    TaskDependency[] @relation("dependencyTask")
 }
 
 enum Priority {
@@ -122,6 +135,8 @@ enum TaskStatus {
   IN_PROGRESS
   REVIEW
   COMPLETED
+  QA_REVIEW
+  QA_FAILED
   CLIENT_REVIEW
   DELIVERED
   REOPENED
@@ -183,4 +198,27 @@ model Attachment {
   mimeType  String
   uploadedBy String
   createdAt DateTime @default(now())
+}
+
+model TaskAssignee {
+  id          String   @id @default(uuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  role        String   @default("assignee")
+  orderIndex  Int      @default(0)
+  isActive    Boolean  @default(true)
+  assignedAt  DateTime @default(now())
+  @@unique([taskId, userId])
+}
+
+model TaskDependency {
+  id              String   @id @default(uuid())
+  taskId          String
+  task            Task     @relation("dependentTask", fields: [taskId], references: [id])
+  dependsOnTaskId String
+  dependsOnTask   Task     @relation("dependencyTask", fields: [dependsOnTaskId], references: [id])
+  createdAt       DateTime @default(now())
+  @@unique([taskId, dependsOnTaskId])
 }

@@ -30,18 +30,13 @@ const STATUS_COLORS = {
   CANCELLED: 'bg-red-100 text-red-700',
 };
 
-const EVENT_ICONS = {
-  CREATED: '🆕',
-  STATUS_CHANGE: '🔄',
-  ASSIGNED: '👤',
-  COMMENT: '💬',
-  DEFAULT: '📌',
-};
 
 export default function RequestDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['client-request', id],
@@ -66,6 +61,23 @@ export default function RequestDetail() {
     },
     onSuccess: () => {
       setComment('');
+      queryClient.invalidateQueries({ queryKey: ['client-request', id] });
+    },
+  });
+
+  const feedbackMutation = useMutation({
+    mutationFn: async (content) => {
+      const res = await fetch(`/api/v1/tasks/${id}/comments`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ content, isInternal: false }),
+      });
+      if (!res.ok) throw new Error('Failed to submit feedback');
+      return res.json();
+    },
+    onSuccess: () => {
+      setFeedback('');
+      setShowFeedback(false);
       queryClient.invalidateQueries({ queryKey: ['client-request', id] });
     },
   });
@@ -109,8 +121,14 @@ export default function RequestDetail() {
     );
   }
 
-  const comments = task.comments ?? [];
-  const timeline = task.events ?? task.timeline ?? [];
+  const allEvents = task.events ?? [];
+  const comments = allEvents.filter(e => e.eventType === 'comment').map(e => ({
+    id: e.id,
+    content: e.note,
+    author: e.actor,
+    authorName: e.actor?.name,
+    createdAt: e.createdAt,
+  }));
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -192,37 +210,52 @@ export default function RequestDetail() {
             </button>
           </div>
         )}
+
+        {/* Client Feedback / Change Request */}
+        {!['DELIVERED', 'CANCELLED'].includes(task.status) && (
+          <div className="mt-6">
+            {!showFeedback ? (
+              <button
+                onClick={() => setShowFeedback(true)}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#0f766e] hover:text-[#134e4a] transition-colors"
+              >
+                <MessageSquare className="h-4 w-4" /> Submit Change Request / Feedback
+              </button>
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                <p className="text-sm font-medium text-gray-700">Change Request / Feedback</p>
+                <textarea
+                  rows={3}
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Describe the changes you'd like or provide feedback..."
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm shadow-sm outline-none focus:ring-2 focus:ring-[#0f766e]/20 focus:border-[#0f766e] resize-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => feedback.trim() && feedbackMutation.mutate(feedback.trim())}
+                    disabled={!feedback.trim() || feedbackMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f766e] px-4 py-2 text-sm font-medium text-white hover:bg-[#134e4a] transition-colors disabled:opacity-50"
+                  >
+                    {feedbackMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Submit Feedback
+                  </button>
+                  <button
+                    onClick={() => { setShowFeedback(false); setFeedback(''); }}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Timeline */}
-        <div className="lg:col-span-1 rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-gray-900">Timeline</h2>
-          </div>
-          {timeline.length === 0 ? (
-            <div className="px-5 py-8 text-center text-xs text-gray-400">No events yet.</div>
-          ) : (
-            <ul className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
-              {timeline.map((event, i) => (
-                <li key={i} className="px-5 py-3">
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-sm">{EVENT_ICONS[event.type] ?? EVENT_ICONS.DEFAULT}</span>
-                    <div>
-                      <p className="text-xs text-gray-700">{event.description ?? event.message ?? event.type}</p>
-                      <p className="mt-0.5 text-[11px] text-gray-400">
-                        {event.createdAt && formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
+      <div className="grid grid-cols-1 gap-6">
         {/* Comments */}
-        <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm flex flex-col">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm flex flex-col">
           <div className="border-b border-gray-100 px-5 py-4 flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-gray-400" />
             <h2 className="text-sm font-semibold text-gray-900">Comments</h2>

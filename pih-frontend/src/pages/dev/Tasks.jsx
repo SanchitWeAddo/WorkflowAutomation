@@ -25,6 +25,7 @@ export default function DevTasks() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
   const [page, setPage] = useState(1);
 
   const fetchTasks = () => {
@@ -32,6 +33,7 @@ export default function DevTasks() {
     const params = new URLSearchParams({ assigneeId: user?.id, page, limit: 20 });
     if (search) params.set('search', search);
     if (statusFilter) params.set('status', statusFilter);
+    if (priorityFilter) params.set('priority', priorityFilter);
     fetch(`/api/v1/tasks?${params}`, { headers: authHeaders() })
       .then(r => r.json())
       .then(data => {
@@ -42,7 +44,7 @@ export default function DevTasks() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchTasks(); }, [page, statusFilter, user?.id]);
+  useEffect(() => { fetchTasks(); }, [page, statusFilter, priorityFilter, user?.id]);
 
   return (
     <div>
@@ -55,17 +57,27 @@ export default function DevTasks() {
         <form onSubmit={(e) => { e.preventDefault(); fetchTasks(); }} className="flex-1">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks..."
+            <input value={search} onChange={e => { setSearch(e.target.value); }} onKeyUp={(e) => { if (e.key === 'Enter') fetchTasks(); }}
+              placeholder="Search tasks..."
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20" />
           </div>
         </form>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none">
           <option value="">All Statuses</option>
           <option value="ASSIGNED">Assigned</option>
           <option value="IN_PROGRESS">In Progress</option>
           <option value="REVIEW">Review</option>
           <option value="COMPLETED">Completed</option>
+          <option value="REOPENED">Reopened</option>
+        </select>
+        <select value={priorityFilter} onChange={e => { setPriorityFilter(e.target.value); setPage(1); }}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none">
+          <option value="">All Priorities</option>
+          <option value="URGENT">Urgent</option>
+          <option value="HIGH">High</option>
+          <option value="NORMAL">Normal</option>
+          <option value="LOW">Low</option>
         </select>
       </div>
 

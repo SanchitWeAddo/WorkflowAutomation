@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, Briefcase } from 'lucide-react';
+import { Users, Activity, Briefcase, Search } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useAuthStore } from '../../store/authStore';
@@ -18,9 +18,20 @@ export default function AnalyticsResources() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [skillFilter, setSkillFilter] = useState('');
+
   if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent" /></div>;
 
   const members = data?.members || [];
+  const allSkills = [...new Set(members.flatMap(m => m.skills || []))].sort();
+
+  const filteredMembers = members.filter(m => {
+    const matchesSearch = !searchQuery || m.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSkill = !skillFilter || (m.skills || []).includes(skillFilter);
+    return matchesSearch && matchesSkill;
+  });
+
   const avgUtilization = members.length > 0
     ? Math.round(members.reduce((sum, m) => sum + (m.utilization || 0), 0) / members.length)
     : 0;
@@ -51,9 +62,32 @@ export default function AnalyticsResources() {
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">Team Utilization</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Team Utilization</h2>
+          <div className="flex gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search members..."
+                className="rounded-lg border border-gray-300 py-1.5 pl-9 pr-3 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              />
+            </div>
+            <select
+              value={skillFilter}
+              onChange={e => setSkillFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-brand focus:outline-none"
+            >
+              <option value="">All Skills</option>
+              {allSkills.map(skill => (
+                <option key={skill} value={skill}>{skill}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div className="space-y-4">
-          {members.map((member) => {
+          {filteredMembers.map((member) => {
             const util = member.utilization || 0;
             const barColor = util > 90 ? 'bg-red-500' : util > 70 ? 'bg-amber-500' : 'bg-brand';
             return (
@@ -79,8 +113,8 @@ export default function AnalyticsResources() {
               </div>
             );
           })}
-          {members.length === 0 && (
-            <p className="py-8 text-center text-gray-400">No team data available</p>
+          {filteredMembers.length === 0 && (
+            <p className="py-8 text-center text-gray-400">No team members match your filters</p>
           )}
         </div>
       </div>

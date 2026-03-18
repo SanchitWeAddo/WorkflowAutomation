@@ -53,11 +53,11 @@ export default function LeadDashboard() {
   const isLoading = loadingOverview || loadingWorkload;
 
   const statCards = [
-    { label: 'Total Tasks', value: stats.totalTasks ?? 0, icon: LayoutDashboard, color: 'text-[#0f766e]', bg: 'bg-teal-50' },
-    { label: 'Unassigned', value: stats.unassigned ?? 0, icon: UserPlus, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'In Progress', value: stats.inProgress ?? 0, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'SLA At Risk', value: stats.slaAtRisk ?? 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Completed This Week', value: stats.completedThisWeek ?? 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
+    { label: 'Total Tasks', value: stats.totalTasks ?? 0, icon: LayoutDashboard, color: 'text-[#0f766e]', bg: 'bg-teal-50', link: '/lead/tasks' },
+    { label: 'Unassigned', value: stats.unassigned ?? 0, icon: UserPlus, color: 'text-amber-600', bg: 'bg-amber-50', link: '/lead/tasks?status=SUBMITTED' },
+    { label: 'In Progress', value: stats.inProgress ?? 0, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50', link: '/lead/tasks?status=IN_PROGRESS' },
+    { label: 'SLA At Risk', value: stats.slaAtRisk ?? 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', link: '/lead/tasks' },
+    { label: 'Completed This Week', value: stats.completedThisWeek ?? 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', link: '/lead/tasks?status=COMPLETED' },
   ];
 
   if (isLoading) {
@@ -80,7 +80,7 @@ export default function LeadDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {statCards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <Link key={card.label} to={card.link} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-[#14b8a6] hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-gray-500">{card.label}</span>
               <div className={clsx('rounded-lg p-1.5', card.bg)}>
@@ -88,7 +88,7 @@ export default function LeadDashboard() {
               </div>
             </div>
             <p className="mt-2 text-2xl font-bold text-gray-900">{card.value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
